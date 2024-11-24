@@ -228,8 +228,12 @@ class EndoNeRF_Dataset(object):
 
     
     def get_sparse_pts(self, sample=True):
+        # 读取相机的位姿信息
         R, T = self.image_poses[0]
+        # 取第0帧的深度图
         depth = np.array(Image.open(self.depth_paths[0]))
+        # 设置全为１的掩码图（EndoNeRF自带的深度图中已去除工具）-----------------
+        # 去除0值深度，按百分比取原始深度值的[0.1, 99.9]
         depth_mask = np.ones(depth.shape).astype(np.float32)
         close_depth = np.percentile(depth[depth!=0], 0.1)
         inf_depth = np.percentile(depth[depth!=0], 99.9)
@@ -237,13 +241,17 @@ class EndoNeRF_Dataset(object):
         depth_mask[np.bitwise_and(depth<close_depth, depth!=0)] = 0
         depth_mask[depth==0] = 0
         depth[depth_mask==0] = 0
+        # 如果是stereo数据集，则不用反转掩码；如果是EndoNeRF数据集，需要反转掩码---
+        # 最终非工具处掩码为1，工具处掩码为0
         if 'stereo_' in self.root_dir:
             mask = np.array(Image.open(self.masks_paths[0]))
+            # 如果掩码是三通道图像，则取第一个通道
             if len(mask.shape) > 2:
                 mask = (mask[..., 0]>0).astype(np.uint8) 
         else:
             mask = 1 - np.array(Image.open(self.masks_paths[0]))/255.0
         mask = np.logical_and(depth_mask, mask)   
+        # 加载对应的 RGB 图像，并将其归一化到[0, 1]
         color = np.array(Image.open(self.image_paths[0]))/255.0
         # color_uint8 = np.array(Image.open(self.image_paths[0]), dtype=np.uint8)
         # filling_mask = np.logical_not(mask)
@@ -280,6 +288,12 @@ class EndoNeRF_Dataset(object):
     def search_pts_colors_with_motion(self, ref_pts, ref_color, ref_mask, ref_c2w):
         # calculating the motion mask
         motion_mask = self.calculate_motion_masks()
+
+        # 将多帧运动遮罩保存为多个图像文件
+        for idx, mask in enumerate(motion_mask):  # 假设 motion_mask 是 3D 数组
+            motion_mask_image = (mask * 255).astype(np.uint8)  # 转换为图像格式
+            Image.fromarray(motion_mask_image).save(f"motion_mask_{idx}.png")  # 保存每帧
+
         interval = 1
         if len(self.image_poses) > 150: # in case long sequence
             interval = 2
