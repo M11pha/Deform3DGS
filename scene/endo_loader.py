@@ -83,11 +83,6 @@ def normalize(v):
     return v / np.linalg.norm(v)
 
 
-
-
-
-
-
 class EndoNeRF_Dataset(object):
     def __init__(
         self,
@@ -145,9 +140,9 @@ class EndoNeRF_Dataset(object):
             H, W, focal = poses[0, :, -1]
             focal = focal / self.downsample
             self.focal = (focal, focal)
-            self.K = np.array([[focal, 0 , W//2],
-                                        [0, focal, H//2],
-                                        [0, 0, 1]]).astype(np.float32)
+            self.K = np.array([ [focal, 0 ,    W//2],
+                                [0,     focal, H//2],
+                                [0,     0,     1   ]]).astype(np.float32)
             poses = np.concatenate([poses[..., :1], -poses[..., 1:2], -poses[..., 2:3], poses[..., 3:4]], -1)
         
         # prepare poses
@@ -215,6 +210,14 @@ class EndoNeRF_Dataset(object):
             # fov
             FovX = focal2fov(self.focal[0], self.img_wh[0])
             FovY = focal2fov(self.focal[1], self.img_wh[1])
+            '''
+            colmap_id = idx 图片序号
+            R, T, FovX, FovY
+            image,depth,mask RGB图,深度图,掩码图
+            gt_alpha_mask = None
+            image_name, uid, data_device, time
+            Znear, Zfar, K, h, w
+            '''
             cameras.append(Camera(colmap_id=idx, R=R, T=T, FoVx=FovX, FoVy=FovY,image=image, depth=depth, mask=mask, gt_alpha_mask=None,
                           image_name=f"{idx}", uid=idx, data_device=torch.device("cuda"), time=time,
                           Znear=None, Zfar=None, K=self.K, h=self.img_wh[1], w=self.img_wh[0]))
